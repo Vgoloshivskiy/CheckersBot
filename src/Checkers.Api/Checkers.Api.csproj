@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Checkers.Api</RootNamespace>
+    <AssemblyName>Checkers.Api</AssemblyName>
+    <AspNetCoreHostingModel>InProcess</AspNetCoreHostingModel>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Checkers.Application\Checkers.Application.csproj" />
+    <ProjectReference Include="..\Checkers.Engine\Checkers.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

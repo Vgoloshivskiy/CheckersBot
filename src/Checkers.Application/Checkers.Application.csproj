@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Checkers.Application</RootNamespace>
+    <AssemblyName>Checkers.Application</AssemblyName>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Checkers.Core\Checkers.Core.csproj" />
+    <ProjectReference Include="..\Checkers.Engine.Protocol\Checkers.Engine.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>

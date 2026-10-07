@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A small console program that loads Kingsrow64.dll (and egdb64.dll) into its own process and talks to the API
+    over standard input and output, one JSON object per line. It is 64-bit because the DLLs are 64-bit.
+    Publish it with: dotnet publish -c Release -r win-x64 (self-contained false)
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Checkers.Engine.KingsRowHost</RootNamespace>
+    <AssemblyName>Checkers.Engine.KingsRowHost</AssemblyName>
+    <TargetFramework>net10.0</TargetFramework>
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Checkers.Core\Checkers.Core.csproj" />
+    <ProjectReference Include="..\Checkers.Engine.Protocol\Checkers.Engine.Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Checkers.Tests" />
+  </ItemGroup>
+
+</Project>

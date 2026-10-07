@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Floating versions so NuGet picks current releases. Pin them once restore works for you. -->
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
+    <PackageReference Include="xunit" Version="2.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Checkers.Core\Checkers.Core.csproj" />
+    <ProjectReference Include="..\..\src\Checkers.Application\Checkers.Application.csproj" />
+    <ProjectReference Include="..\..\src\Checkers.Engine.Protocol\Checkers.Engine.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\Checkers.Engine\Checkers.Engine.csproj" />
+    <ProjectReference Include="..\..\src\Checkers.Engine.KingsRowHost\Checkers.Engine.KingsRowHost.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkers API test board</title>
+<style>
+  :root {
+    --bg: #e9eeec;
+    --surface: #f6f9f8;
+    --ink: #17211f;
+    --ink-soft: #52605c;
+    --line: #c5d1cd;
+    --field: #ffffff;
+    --btn: #17211f;
+    --btn-ink: #f6f9f8;
+    --sq-dark: #2f5f58;
+    --sq-light: #d6e2dd;
+    --sq-num: #a9c7c0;
+    --black-piece: #1b2124;
+    --black-ring: #56646b;
+    --white-piece: #f1f5f2;
+    --white-ring: #9fb0aa;
+    --pick: #e7b02f;
+    --engine: #d4435b;
+    --ok: #2c7a4b;
+    --warn: #a86a12;
+    --bad: #b3303f;
+    --focus: #3b5bdb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111715;
+      --surface: #1a2320;
+      --ink: #e6eeeb;
+      --ink-soft: #9db0aa;
+      --line: #2f3d39;
+      --field: #141c19;
+      --btn: #e6eeeb;
+      --btn-ink: #111715;
+      --ok: #55c07f;
+      --warn: #e0a24a;
+      --bad: #ef6a78;
+      --focus: #8aa2ff;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background: var(--bg);
+    font: 15px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .top {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+    gap: 8px 24px; padding: 20px 28px 0; max-width: 1200px; margin: 0 auto;
+  }
+  h1 { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -0.01em; }
+  h2 { margin: 0 0 10px; font-size: 16px; font-weight: 650; }
+
+  .health { margin: 0; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-soft); }
+  .health[data-state="ok"] .dot { background: var(--ok); }
+  .health[data-state="warn"] .dot { background: var(--warn); }
+  .health[data-state="bad"] .dot { background: var(--bad); }
+
+  .layout {
+    display: grid; grid-template-columns: minmax(300px, 640px) minmax(320px, 1fr);
+    gap: 32px; padding: 20px 28px 48px; max-width: 1200px; margin: 0 auto; align-items: start;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; padding: 16px 16px 40px; }
+    .top { padding: 16px 16px 0; }
+  }
+
+  .status { margin: 0 0 4px; font-size: 17px; font-weight: 600; min-height: 1.5em; }
+  .note { margin: 0 0 10px; min-height: 1.5em; color: var(--ink-soft); }
+  .note[data-kind="bad"] { color: var(--bad); }
+  .note[data-kind="warn"] { color: var(--warn); }
+
+  #board { display: block; width: 100%; height: auto; max-width: 640px; border-radius: 6px; touch-action: manipulation; }
+  .sq-light { fill: var(--sq-light); }
+  .sq-dark { fill: var(--sq-dark); }
+  .sq-num { fill: var(--sq-num); font-size: 17px; pointer-events: none; }
+  .sq { cursor: default; }
+  .sq.can { cursor: pointer; }
+  .sq:focus-visible { outline: none; }
+  .sq:focus-visible .sq-dark { stroke: var(--focus); stroke-width: 6; }
+  .hl-last { fill: rgba(231, 176, 47, 0.30); pointer-events: none; }
+  .hl-sel { fill: none; stroke: var(--pick); stroke-width: 7; pointer-events: none; }
+  .tgt { fill: var(--pick); opacity: 0.95; pointer-events: none; }
+  .pc-black { fill: var(--black-piece); stroke: #0b0f10; stroke-width: 3; }
+  .pc-black-ring { stroke: var(--black-ring); stroke-width: 2.5; fill: none; }
+  .pc-white { fill: var(--white-piece); stroke: #6f827b; stroke-width: 3; }
+  .pc-white-ring { stroke: var(--white-ring); stroke-width: 2.5; fill: none; }
+  .crown-on-black { fill: var(--white-piece); }
+  .crown-on-white { fill: var(--black-piece); }
+  .hint-line { fill: none; stroke: var(--engine); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; pointer-events: none; }
+  .hint-from { fill: none; stroke: var(--engine); stroke-width: 7; pointer-events: none; }
+  .hint-to { fill: var(--engine); pointer-events: none; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button {
+    border: 1px solid var(--ink); background: transparent; border-radius: 6px;
+    padding: 6px 14px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--line); }
+  button.primary { background: var(--btn); color: var(--btn-ink); border-color: var(--btn); }
+  button.primary:hover:not(:disabled) { opacity: 0.88; background: var(--btn); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .side { display: grid; gap: 28px; }
+  .side section { border-top: 1px solid var(--line); padding-top: 14px; }
+  .side section:first-child { border-top: 0; padding-top: 0; }
+
+  .field { display: grid; gap: 4px; margin-bottom: 12px; }
+  .field > label, .field > .label { color: var(--ink-soft); font-size: 13px; }
+  select, input, textarea {
+    background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; width: 100%;
+  }
+  textarea { font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; font-size: 13px; resize: vertical; }
+  textarea[aria-invalid="true"] { border-color: var(--bad); }
+  .error { color: var(--bad); margin: 4px 0 0; min-height: 1.4em; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  details > summary { cursor: pointer; color: var(--ink-soft); }
+
+  .answer-empty { color: var(--ink-soft); margin: 0; }
+  dl.answer { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+  dl.answer dt { color: var(--ink-soft); }
+  dl.answer dd { margin: 0; }
+  .mono { font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; font-size: 13px; }
+  .tag { display: inline-block; border: 1px solid currentColor; border-radius: 4px; padding: 0 6px; margin-right: 6px; font-size: 13px; }
+  .tag.ok { color: var(--ok); }
+  .pv { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
+  th { color: var(--ink-soft); font-weight: 500; }
+  td.num, th.num { text-align: right; }
+  td.s-ok { color: var(--ok); }
+  td.s-bad { color: var(--bad); }
+  pre {
+    margin: 8px 0 0; padding: 10px; background: var(--field); border: 1px solid var(--line); border-radius: 6px;
+    overflow: auto; max-height: 280px; font-size: 12px;
+  }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Checkers API test board</h1>
+  <p id="health" class="health" data-state="warn" role="status"><span class="dot" aria-hidden="true"></span><span id="healthText">Checking the service</span></p>
+</header>
+
+<main class="layout">
+  <section aria-label="Board">
+    <p id="status" class="status" role="status"></p>
+    <p id="note" class="note" data-kind="" role="status"></p>
+    <svg id="board" viewBox="0 0 800 800" role="group" aria-label="Checkers board"></svg>
+    <div class="actions">
+      <button id="btnNew" class="primary" type="button">New game</button>
+      <button id="btnUndo" type="button">Undo</button>
+      <button id="btnFlip" type="button">Flip board</button>
+      <button id="btnHint" type="button">Show best move</button>
+      <button id="btnEngine" type="button">Play engine move</button>
+    </div>
+  </section>
+
+  <div class="side">
+    <section aria-labelledby="h-setup">
+      <h2 id="h-setup">Game setup</h2>
+      <div class="field">
+        <label for="mode">You play</label>
+        <select id="mode">
+          <option value="B" selected>Black (moves first)</option>
+          <option value="W">White</option>
+          <option value="both">Both sides</option>
+          <option value="none">Neither, engine plays itself</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="level">Engine level</label>
+        <select id="level">
+          <option value="weak">Weak</option>
+          <option value="medium" selected>Medium</option>
+          <option value="strong">Strong</option>
+        </select>
+      </div>
+      <details>
+        <summary>Override limits</summary>
+        <div class="limits">
+          <div class="field"><label for="limDepth">Max depth</label><input id="limDepth" type="number" min="1" max="40" placeholder="level default"></div>
+          <div class="field"><label for="limSoft">Soft time (ms)</label><input id="limSoft" type="number" min="10" placeholder="level default"></div>
+          <div class="field"><label for="limHard">Hard time (ms)</label><input id="limHard" type="number" min="50" placeholder="1200"></div>
+        </div>
+      </details>
+    </section>
+
+    <section aria-labelledby="h-pos">
+      <h2 id="h-pos">Position</h2>
+      <div class="field">
+        <label for="pdn">PDN (side to move : White pieces : Black pieces)</label>
+        <textarea id="pdn" rows="3" spellcheck="false" aria-describedby="pdnError"></textarea>
+        <p id="pdnError" class="error" role="alert"></p>
+      </div>
+      <div class="row">
+        <button id="btnLoad" type="button">Load position</button>
+        <label class="sr" for="example">Example positions</label>
+        <select id="example" style="width:auto">
+          <option value="">Load an example</option>
+          <option value="start">Starting position</option>
+          <option value="forced">Forced capture (from the spec)</option>
+          <option value="midgame">Crowded middlegame</option>
+          <option value="endgame">Six pieces, endgame database win</option>
+          <option value="bad">Invalid PDN, expect a 422</option>
+        </select>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-answer">
+      <h2 id="h-answer">Engine answer</h2>
+      <div id="answer"><p class="answer-empty">Show the best move or play an engine move to see the service response here.</p></div>
+    </section>
+
+    <section aria-labelledby="h-log">
+      <h2 id="h-log">Requests</h2>
+      <table>
+        <thead><tr><th>Endpoint</th><th>Status</th><th class="num">Round trip</th><th>Note</th></tr></thead>
+        <tbody id="logBody"><tr><td colspan="4">No requests yet.</td></tr></tbody>
+      </table>
+      <details>
+        <summary>Last request and response</summary>
+        <pre id="raw" class="mono">Nothing sent yet.</pre>
+      </details>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  // Works at the site root and under an IIS virtual directory (relative to this page).
+  const BASE = location.pathname.replace(/[^/]*$/, '');
+  const START = 'B:W21,22,23,24,25,26,27,28,29,30,31,32:B1,2,3,4,5,6,7,8,9,10,11,12';
+  const EXAMPLES = {
+    start: START,
+    forced: 'B:W18,19,22,25,27,28,30,32:B1,5,6,7,10,12,14,16',
+    midgame: 'W:W17,18,21,22,23,24,26,27,28,29,30,32:B1,2,3,4,6,7,8,9,10,11,12,16',
+    endgame: 'B:WK7,K10,18:BK1,K3,K4',
+    bad: 'B:W18,19,22:B18,5'
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    board: $('board'), status: $('status'), note: $('note'), mode: $('mode'), level: $('level'),
+    depth: $('limDepth'), soft: $('limSoft'), hard: $('limHard'), pdn: $('pdn'), pdnError: $('pdnError'),
+    answer: $('answer'), logBody: $('logBody'), raw: $('raw'), health: $('health'), healthText: $('healthText'),
+    btnNew: $('btnNew'), btnUndo: $('btnUndo'), btnFlip: $('btnFlip'), btnHint: $('btnHint'),
+    btnEngine: $('btnEngine'), btnLoad: $('btnLoad'), example: $('example')
+  };
+
+  const S = {
+    pdn: START, turn: 'B', pieces: {}, moves: [], history: [], gameOver: false, winner: null,
+    sel: [], hint: null, lastMove: null, busy: false, runId: 0, flipped: true, mode: 'B', log: []
+  };
+
+  // ---- helpers -----------------------------------------------------------------------------
+
+  const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const sideName = (s) => (s === 'B' ? 'Black' : 'White');
+  const samePath = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const hasPrefix = (path, prefix) => path.length >= prefix.length && prefix.every((v, i) => path[i] === v);
+
+  function parsePdn(pdn) {
+    const [turn, white, black] = pdn.split(':');
+    const pieces = {};
+    for (const [section, color] of [[white, 'W'], [black, 'B']]) {
+      const list = section.slice(1);
+      if (!list) continue;
+      for (const token of list.split(',')) {
+        const king = token[0] === 'K';
+        pieces[parseInt(king ? token.slice(1) : token, 10)] = { color, king };
+      }
+    }
+    return { turn, pieces };
+  }
+
+  // Square numbers run 1-4 on the top row, left to right across the dark squares.
+  function cellOf(sq) {
+    const i = sq - 1, r = Math.floor(i / 4), k = i % 4;
+    return { r, c: r % 2 === 0 ? 2 * k + 1 : 2 * k };
+  }
+  function displayXY(sq) {
+    let { r, c } = cellOf(sq);
+    if (S.flipped) { r = 7 - r; c = 7 - c; }
+    return { x: c * 100, y: r * 100 };
+  }
+
+  const humansMove = () => !S.gameOver && (S.mode === 'both' || S.mode === S.turn);
+  const engineToMove = () => !S.gameOver && (S.mode === 'none' || (S.mode !== 'both' && S.mode !== S.turn));
+
+  function setNote(text, kind) { el.note.textContent = text || ''; el.note.dataset.kind = kind || ''; }
+
+  // ---- service calls -----------------------------------------------------------------------
+
+  async function api(method, path, body) {
+    const t0 = performance.now();
+    let res, text = '', data = null;
+    try {
+      res = await fetch(BASE + path, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+      });
+      text = await res.text();
+      try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+    } catch (err) {
+      const ms = Math.round(performance.now() - t0);
+      record(method, path, body, 0, ms, String(err), 'network error');
+      return { ok: false, status: 0, ms, data: null, error: 'Could not reach the service.' };
+    }
+    const ms = Math.round(performance.now() - t0);
+    let note = '';
+    if (data && data.info) note = [data.info.tablebaseHit ? 'tablebase' : '', data.info.cached ? 'cached' : ''].filter(Boolean).join(', ');
+    else if (data && data.code) note = data.code;
+    else if (data && data.legal === false) note = 'illegal move';
+    record(method, path, body, res.status, ms, text, note);
+    return { ok: res.ok, status: res.status, ms, data };
+  }
+
+  function record(method, path, body, status, ms, responseText, note) {
+    S.log.unshift({ path, status, ms, note });
+    S.log = S.log.slice(0, 12);
+    el.logBody.innerHTML = S.log.map((e) => {
+      const cls = e.status >= 200 && e.status < 300 ? 's-ok' : 's-bad';
+      return `<tr><td class="mono">${esc(e.path)}</td><td class="${cls}">${e.status || 'failed'}</td><td class="num">${e.ms} ms</td><td>${esc(e.note)}</td></tr>`;
+    }).join('');
+    let pretty = responseText;
+    try { pretty = JSON.stringify(JSON.parse(responseText), null, 2); } catch { /* keep raw text */ }
+    el.raw.textContent = `${method} /${path}\n${body ? JSON.stringify(body, null, 2) : '(no body)'}\n\nHTTP ${status || 'failed'} in ${ms} ms\n${pretty}`;
+  }
+
+  async function checkHealth() {
+    try {
+      const res = await fetch(BASE + 'healthz');
+      const d = await res.json().catch(() => null);
+      if (res.ok && d && d.ok) setHealth('ok', `Ready, ${d.workers} engine workers`);
+      else setHealth('warn', 'Engine starting up');
+    } catch {
+      setHealth('bad', 'Service unreachable');
+    }
+  }
+  function setHealth(state, text) { el.health.dataset.state = state; el.healthText.textContent = text; }
+
+  // Asks the service for the legal moves in a position and adopts the result as the current position.
+  async function loadPosition(pdn) {
+    const r = await api('POST', 'v1/move/legal', { position: pdn });
+    if (!r.ok) return { ok: false, error: (r.data && r.data.detail) || r.error || `HTTP ${r.status}` };
+    const d = r.data;
+    S.pdn = d.position; S.turn = d.sideToMove; S.moves = d.moves;
+    S.gameOver = d.gameOver; S.winner = d.winner || null;
+    S.pieces = parsePdn(d.position).pieces;
+    S.sel = []; S.hint = null;
+    el.pdn.value = S.pdn;
+    return { ok: true };
+  }
+
+  function readLimits() {
+    const limits = {};
+    if (el.depth.value) limits.maxDepth = Number(el.depth.value);
+    if (el.soft.value) limits.softTimeMs = Number(el.soft.value);
+    if (el.hard.value) limits.hardTimeMs = Number(el.hard.value);
+    return Object.keys(limits).length ? limits : null;
+  }
+
+  // ---- game flow ---------------------------------------------------------------------------
+
+  async function askEngine(play) {
+    if (S.busy || S.gameOver) return;
+    const run = S.runId;
+    setNote('');
+    S.busy = true; render();
+
+    const body = { gameId: 'checkers-8x8', state: { notation: 'PDN', position: S.pdn }, level: el.level.value };
+    const limits = readLimits();
+    if (limits) body.limits = limits;
+
+    const r = await api('POST', 'v1/move/suggest', body);
+    S.busy = false;
+    if (run !== S.runId) { render(); return; }
+
+    if (!r.ok) {
+      const why = (r.data && r.data.detail) || r.error || `HTTP ${r.status}`;
+      setNote(`The engine request failed (${r.status || 'no response'}): ${why}`, 'bad');
+      render();
+      return;
+    }
+
+    showAnswer(r.data, r.ms);
+    const move = S.moves.find((m) => m.move === r.data.bestMove);
+    if (!move) {
+      setNote(`The service suggested ${r.data.bestMove}, which is not in its own legal move list.`, 'bad');
+      render();
+      return;
+    }
+
+    if (play) {
+      await commit(move);
+      scheduleNext();
+    } else {
+      S.hint = move.path;
+      render();
+    }
+  }
+
+  async function commit(move) {
+    S.history.push({ pdn: S.pdn, move: move.move, by: S.turn });
+    const path = move.path;
+    const r = await loadPosition(move.result);
+    S.lastMove = path;
+    if (!r.ok) setNote(`Could not load the resulting position: ${r.error}`, 'bad');
+  }
+
+  function scheduleNext() {
+    render();
+    if (!engineToMove()) return;
+    if (S.history.length >= 250) {
+      setNote('Stopped after 250 moves. The service has no draw detection, so king endgames can shuffle forever.', 'warn');
+      return;
+    }
+    const run = S.runId;
+    setTimeout(() => { if (run === S.runId) askEngine(true); }, S.mode === 'none' ? 350 : 150);
+  }
+
+  async function playHuman(move) {
+    const run = S.runId;
+    S.busy = true; render();
+    const v = await api('POST', 'v1/move/validate', { position: S.pdn, move: move.move });
+    S.busy = false;
+    if (run !== S.runId) { render(); return; }
+
+    if (!v.ok || !v.data || !v.data.legal) {
+      S.sel = [];
+      const why = (v.data && (v.data.reason || v.data.detail)) || v.error || `HTTP ${v.status}`;
+      setNote(`The service rejected ${move.move}: ${why}`, 'bad');
+      render();
+      return;
+    }
+    setNote('');
+    await commit(move);
+    scheduleNext();
+  }
+
+  async function onSquare(sq) {
+    if (S.busy || !humansMove()) return;
+    const starts = S.moves.filter((m) => m.path[0] === sq);
+
+    if (S.sel.length === 0) {
+      if (starts.length) { S.sel = [sq]; setNote(''); render(); }
+      return;
+    }
+
+    const next = S.moves.filter((m) => hasPrefix(m.path, S.sel) && m.path.length > S.sel.length && m.path[S.sel.length] === sq);
+    if (next.length) {
+      S.sel = S.sel.concat(sq);
+      const done = S.moves.filter((m) => samePath(m.path, S.sel));
+      if (done.length === 1) await playHuman(done[0]);
+      else render();
+      return;
+    }
+
+    // Clicked something that is not a continuation: deselect, or switch to another movable piece.
+    S.sel = starts.length && sq !== S.sel[0] ? [sq] : [];
+    render();
+  }
+
+  async function newGame() {
+    S.runId++;
+    S.history = []; S.lastMove = null; S.busy = false;
+    setNote('');
+    const r = await loadPosition(START);
+    if (!r.ok) setNote(`Could not start a game: ${r.error}`, 'bad');
+    scheduleNext();
+  }
+
+  async function undo() {
+    if (S.busy || !S.history.length) return;
+    S.runId++;
+    let item = S.history.pop();
+    // In a game against the engine, also take back its reply so it is your move again.
+    if ((S.mode === 'B' || S.mode === 'W') && S.history.length && item.by !== S.mode) item = S.history.pop();
+    await loadPosition(item.pdn);
+    S.lastMove = null;
+    setNote('Move taken back. Use "Play engine move" to continue if the engine is to move.');
+    render();
+  }
+
+  async function onLoad() {
+    S.runId++;
+    setNote('');
+    const r = await loadPosition(el.pdn.value.trim());
+    if (!r.ok) {
+      el.pdnError.textContent = r.error;
+      el.pdn.setAttribute('aria-invalid', 'true');
+      render();
+      return;
+    }
+    el.pdnError.textContent = '';
+    el.pdn.removeAttribute('aria-invalid');
+    S.history = []; S.lastMove = null;
+    scheduleNext();
+  }
+
+  // ---- rendering ---------------------------------------------------------------------------
+
+  function statusText() {
+    if (S.gameOver) return `${sideName(S.turn)} has no legal moves. ${sideName(S.winner)} wins.`;
+    const role = S.mode === 'both' ? '' : (S.mode === 'none' || S.mode !== S.turn ? ' (engine)' : ' (you)');
+    const forced = S.moves.length && S.moves[0].captured.length ? ' A capture is mandatory.' : '';
+    return S.busy ? `${sideName(S.turn)} to move${role}. Waiting for the service.` : `${sideName(S.turn)} to move${role}.${forced}`;
+  }
+
+  function pieceSvg(p, x, y) {
+    const cls = p.color === 'B' ? 'pc-black' : 'pc-white';
+    let s = `<circle class="${cls}" cx="${x + 50}" cy="${y + 50}" r="36"/>`;
+    s += `<circle class="${cls}-ring" cx="${x + 50}" cy="${y + 50}" r="27"/>`;
+    if (p.king) {
+      const crown = p.color === 'B' ? 'crown-on-black' : 'crown-on-white';
+      s += `<path class="${crown}" transform="translate(${x + 50} ${y + 52})" d="M-17 9 L-17 -8 L-8.5 0 L0 -12 L8.5 0 L17 -8 L17 9 Z"/>`;
+    }
+    return s;
+  }
+
+  function render() {
+    const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.sq : null;
+    const selected = S.sel.length ? S.sel[S.sel.length - 1] : null;
+    const targets = new Set();
+    if (S.sel.length) {
+      for (const m of S.moves) if (hasPrefix(m.path, S.sel) && m.path.length > S.sel.length) targets.add(m.path[S.sel.length]);
+    }
+    const movable = new Set();
+    if (humansMove() && !S.busy && !S.sel.length) for (const m of S.moves) movable.add(m.path[0]);
+
+    const parts = [];
+    for (let dr = 0; dr < 8; dr++) {
+      for (let dc = 0; dc < 8; dc++) {
+        const r = S.flipped ? 7 - dr : dr, c = S.flipped ? 7 - dc : dc;
+        const x = dc * 100, y = dr * 100;
+        if ((r + c) % 2 === 0) {
+          parts.push(`<rect class="sq-light" x="${x}" y="${y}" width="100" height="100"/>`);
+          continue;
+        }
+        const sq = 4 * r + (c >> 1) + 1;
+        const p = S.pieces[sq];
+        const label = `Square ${sq}` + (p ? `, ${sideName(p.color)} ${p.king ? 'king' : 'man'}` : ', empty');
+        const can = targets.has(sq) || movable.has(sq) || (S.sel.length && S.moves.some((m) => m.path[0] === sq));
+        let g = `<g class="sq${can ? ' can' : ''}" data-sq="${sq}" tabindex="0" role="button" aria-label="${label}">`;
+        g += `<rect class="sq-dark" x="${x}" y="${y}" width="100" height="100"/>`;
+        g += `<text class="sq-num" x="${x + 7}" y="${y + 21}">${sq}</text>`;
+        if (S.lastMove && S.lastMove.includes(sq)) g += `<rect class="hl-last" x="${x}" y="${y}" width="100" height="100"/>`;
+        if (p) g += pieceSvg(p, x, y);
+        if (selected === sq || S.sel.includes(sq)) g += `<rect class="hl-sel" x="${x + 4}" y="${y + 4}" width="92" height="92"/>`;
+        if (targets.has(sq)) g += `<circle class="tgt" cx="${x + 50}" cy="${y + 50}" r="15"/>`;
+        g += '</g>';
+        parts.push(g);
+      }
+    }
+
+    if (S.hint) {
+      const pts = S.hint.map((sq) => { const q = displayXY(sq); return `${q.x + 50},${q.y + 50}`; });
+      const first = displayXY(S.hint[0]), last = displayXY(S.hint[S.hint.length - 1]);
+      parts.push(`<polyline class="hint-line" points="${pts.join(' ')}"/>`);
+      parts.push(`<circle class="hint-from" cx="${first.x + 50}" cy="${first.y + 50}" r="40"/>`);
+      parts.push(`<circle class="hint-to" cx="${last.x + 50}" cy="${last.y + 50}" r="16"/>`);
+    }
+
+    el.board.innerHTML = parts.join('');
+    if (focused) {
+      const again = el.board.querySelector(`[data-sq="${focused}"]`);
+      if (again) again.focus({ preventScroll: true });
+    }
+
+    el.status.textContent = statusText();
+    el.btnUndo.disabled = S.busy || !S.history.length;
+    el.btnHint.disabled = S.busy || S.gameOver;
+    el.btnEngine.disabled = S.busy || S.gameOver;
+  }
+
+  function showAnswer(d, roundTripMs) {
+    const tb = d.info && d.info.tablebaseHit;
+    const score = tb ? ({ '1': 'win', '0': 'draw', '-1': 'loss' }[String(d.scoreOrWDL)] || d.scoreOrWDL) : d.scoreOrWDL;
+    const scoreLabel = tb ? 'Result for side to move' : 'Score for side to move';
+    const tags = [tb ? '<span class="tag ok">Tablebase hit</span>' : '', d.info && d.info.cached ? '<span class="tag">Cached</span>' : ''].join('');
+    el.answer.innerHTML = `
+      <dl class="answer">
+        <dt>Best move</dt><dd><strong class="mono">${esc(d.bestMove)}</strong> ${tags}</dd>
+        <dt>Engine</dt><dd>${esc(d.engine)}</dd>
+        <dt>${scoreLabel}</dt><dd>${esc(score)}</dd>
+        <dt>Depth</dt><dd>${esc(d.depth)}</dd>
+        <dt>Nodes</dt><dd>${Number(d.nodes).toLocaleString()}</dd>
+        <dt>Time</dt><dd>${esc(d.info.timeMs)} ms in the service, ${esc(roundTripMs)} ms round trip</dd>
+        <dt>Principal variation</dt><dd class="pv mono">${(d.pv || []).map((m) => `<span>${esc(m)}</span>`).join('')}</dd>
+        <dt>Position key</dt><dd class="mono" style="word-break:break-all">${esc(d.positionKey)}</dd>
+      </dl>`;
+  }
+
+  // ---- wiring ------------------------------------------------------------------------------
+
+  el.board.addEventListener('click', (e) => {
+    const g = e.target.closest('[data-sq]');
+    if (g) onSquare(Number(g.dataset.sq));
+  });
+  el.board.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const g = e.target.closest('[data-sq]');
+    if (g) { e.preventDefault(); onSquare(Number(g.dataset.sq)); }
+  });
+
+  el.btnNew.addEventListener('click', newGame);
+  el.btnUndo.addEventListener('click', undo);
+  el.btnFlip.addEventListener('click', () => { S.flipped = !S.flipped; render(); });
+  el.btnHint.addEventListener('click', () => askEngine(false));
+  el.btnEngine.addEventListener('click', () => askEngine(true));
+  el.btnLoad.addEventListener('click', onLoad);
+
+  el.mode.addEventListener('change', () => {
+    S.runId++;
+    S.mode = el.mode.value;
+    S.flipped = S.mode === 'B';
+    S.sel = [];
+    S.busy = false;
+    scheduleNext();
+  });
+
+  el.example.addEventListener('change', () => {
+    const key = el.example.value;
+    if (!key) return;
+    el.pdn.value = EXAMPLES[key];
+    el.example.value = '';
+    onLoad();
+  });
+
+  checkHealth();
+  setInterval(checkHealth, 15000);
+  newGame();
+})();
+</script>
+</body>
+</html>
