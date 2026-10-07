@@ -124,4 +124,6 @@ GET /healthz
 
 ## Credits
 
-KingsRow by Ed Gilbert · Chinook endgame databases by Jonathan Schaeffer and the Chinook team, University of Alberta · engine interface after CheckerBoard by Martin Fierz.
+- [KingsRow](https://edgilbert.org/EnglishCheckers/KingsRowEnglish.htm) by Ed Gilbert
+- [Chinook endgame databases](https://webdocs.cs.ualberta.ca/~chinook/databases/) by Jonathan Schaeffer and the Chinook team, University of Alberta
+- Engine interface after [CheckerBoard](https://github.com/eygilbert/CheckerBoard) by Martin Fierz.
